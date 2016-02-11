@@ -55,7 +55,10 @@ public class CachingPageableHTMLOutput extends PageableHTMLOutput {
   public int paginate( final MasterReport report, final int yieldRate )
     throws ReportProcessingException, IOException, ContentIOException {
     try {
-      final String key = createKey( report );
+      String key = report.getContentCacheKey();
+      if ( key == null ) {
+        key = createKey( report );
+      }
       final Integer pageCountCached = getPageCount( key );
       if ( pageCountCached != null ) {
         return pageCountCached.intValue();
@@ -82,11 +85,14 @@ public class CachingPageableHTMLOutput extends PageableHTMLOutput {
     }
 
     try {
-      final String key = createKey( report );
+      String key = report.getContentCacheKey();
+      if ( key == null ) {
+        key = createKey( report );
+      }
       final Integer pageCount = getPageCount( key );
       if ( pageCount == null ) {
         logger.warn( "No cached page count for " + key );
-        final PageResult data = regenerateCache( report, acceptedPage, key, yieldRate );
+        final PageResult data = regenerateCache( report, yieldRate, key, acceptedPage );
         outputStream.write( data.data );
         outputStream.flush();
         return data.pageCount;
@@ -101,7 +107,7 @@ public class CachingPageableHTMLOutput extends PageableHTMLOutput {
       }
 
 
-      final PageResult data = regenerateCache( report, acceptedPage, key, yieldRate );
+      final PageResult data = regenerateCache( report, yieldRate, key, acceptedPage );
       outputStream.write( data.data );
       outputStream.flush();
       return data.pageCount;
