@@ -16,49 +16,29 @@
  */
 package org.pentaho.reporting.platform.plugin.cache;
 
-import java.io.Serializable;
-import java.util.Set;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 
-/**
- * Simple interface for cache backend
- */
-public interface ICacheBackend {
+public class PluginFirstSeeCache extends PluginTimeoutCache {
 
-  /**
-   * Persist object
-   *
-   * @param key   path
-   * @param value object
-   * @return if operation succeed
-   */
-  boolean write( String key, Serializable value );
+  private static final Log logger = LogFactory.getLog( PluginFirstSeeCache.class );
 
-  /**
-   * Retrive object from storage
-   *
-   * @param key path
-   * @return object
-   */
-  Object read( String key );
+  private static final String SEGMENT = "first_see";
 
-  /**
-   * Remove object from storage
-   *
-   * @param key path
-   * @return if operation succeed
-   */
-  boolean purge( String key );
+  public PluginFirstSeeCache( final ICacheBackend backend ) {
+    super( backend );
+  }
 
-  /**
-   * Provides all keys that are children for key
-   * @return set of keys
-   */
-  Set<String> listKeys( String key );
+  @Override public Object get( final String key ) {
+    final Object o = super.get( key );
+    if ( o != null ) {
+      logger.debug( "Cleaning first see cache: " + key );
+      getBackend().purge( getKey( key ) );
+    }
+    return o;
+  }
 
-  /**
-   * Strorage specific separator
-   * @return separator
-   */
-  String getSeparator();
-
+  @Override protected String getSegment() {
+    return SEGMENT;
+  }
 }
