@@ -1,14 +1,28 @@
+/*
+ * This program is free software; you can redistribute it and/or modify it under the
+ * terms of the GNU Lesser General Public License, version 2.1 as published by the Free Software
+ * Foundation.
+ *
+ * You should have received a copy of the GNU Lesser General Public License along with this
+ * program; if not, you can obtain a copy at http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html
+ * or from the Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
+ * without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See the GNU Lesser General Public License for more details.
+ *
+ * Copyright (c) 2002-2016 Pentaho Corporation..  All rights reserved.
+ */
 package org.pentaho.reporting.platform.plugin.output;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.pentaho.platform.api.engine.IApplicationContext;
-import org.pentaho.platform.api.engine.ICacheManager;
-import org.pentaho.platform.api.engine.IPentahoSession;
-import org.pentaho.platform.engine.core.system.PentahoSessionHolder;
 import org.pentaho.platform.engine.core.system.PentahoSystem;
 import org.pentaho.reporting.engine.classic.core.AttributeNames;
+import org.pentaho.reporting.engine.classic.core.ClassicEngineBoot;
 import org.pentaho.reporting.engine.classic.core.MasterReport;
 import org.pentaho.reporting.engine.classic.core.ReportProcessingException;
 import org.pentaho.reporting.engine.classic.core.layout.output.DisplayAllFlowSelector;
@@ -29,6 +43,11 @@ import org.pentaho.reporting.libraries.repository.file.FileRepository;
 import org.pentaho.reporting.libraries.repository.zip.ZipRepository;
 import org.pentaho.reporting.libraries.resourceloader.ResourceKey;
 import org.pentaho.reporting.libraries.xmlns.parser.Base64;
+import org.pentaho.reporting.platform.plugin.cache.ICacheBackend;
+import org.pentaho.reporting.platform.plugin.cache.IPluginCache;
+import org.pentaho.reporting.platform.plugin.cache.IPluginCacheManager;
+import org.pentaho.reporting.platform.plugin.cache.PluginCacheManagerImpl;
+import org.pentaho.reporting.platform.plugin.cache.PluginSessionCache;
 import org.pentaho.reporting.platform.plugin.messages.Messages;
 import org.pentaho.reporting.platform.plugin.repository.PentahoNameGenerator;
 
@@ -48,7 +67,11 @@ public class CachingPageableHTMLOutput extends PageableHTMLOutput {
 
   private static Log logger = LogFactory.getLog( CachingPageableHTMLOutput.class );
 
+  private final IPluginCacheManager cacheManager;
+
   public CachingPageableHTMLOutput() {
+    final ICacheBackend iCacheBackend = ClassicEngineBoot.getInstance().getObjectFactory().get( ICacheBackend.class );
+    cacheManager = new PluginCacheManagerImpl( iCacheBackend );
   }
 
   @Override
@@ -230,9 +253,8 @@ public class CachingPageableHTMLOutput extends PageableHTMLOutput {
   }
 
   public Integer getPageCount( final String key ) {
-    final IPentahoSession session = PentahoSessionHolder.getSession();
-    final ICacheManager mgr = PentahoSystem.getCacheManager( session );
-    final Object fromSessionCache = mgr.getFromSessionCache( session, key + "/pages" );
+    final IPluginCache cache = cacheManager.getCache( PluginSessionCache.class );
+    final Object fromSessionCache = cache.get( key + "/pages" );
     if ( fromSessionCache instanceof Integer ) {
       return (Integer) fromSessionCache;
     }
@@ -240,15 +262,13 @@ public class CachingPageableHTMLOutput extends PageableHTMLOutput {
   }
 
   private void putPageCount( final String key, final int pageCount ) {
-    final IPentahoSession session = PentahoSessionHolder.getSession();
-    final ICacheManager mgr = PentahoSystem.getCacheManager( session );
-    mgr.putInSessionCache( session, key + "/pages", Integer.valueOf( pageCount ) );
+    final IPluginCache cache = cacheManager.getCache( PluginSessionCache.class );
+    cache.put( key + "/pages", Integer.valueOf( pageCount ) );
   }
 
   public PageResult getPage( final String key, final int page ) {
-    final IPentahoSession session = PentahoSessionHolder.getSession();
-    final ICacheManager mgr = PentahoSystem.getCacheManager( session );
-    final Object fromSessionCache = mgr.getFromSessionCache( session, key + "/page-" + page + ".html" );
+    final IPluginCache cache = cacheManager.getCache( PluginSessionCache.class );
+    final Object fromSessionCache = cache.get( key + "/page-" + page + ".html" );
     if ( fromSessionCache instanceof PageResult ) {
       return (PageResult) fromSessionCache;
     }
@@ -256,9 +276,12 @@ public class CachingPageableHTMLOutput extends PageableHTMLOutput {
   }
 
   private void putPage( final String key, final int page, final PageResult data ) {
-    final IPentahoSession session = PentahoSessionHolder.getSession();
-    final ICacheManager mgr = PentahoSystem.getCacheManager( session );
-    mgr.putInSessionCache( session, key + "/page-" + page + ".html", data );
+    final IPluginCache cache = cacheManager.getCache( PluginSessionCache.class );
+    if ( cache != null ) {
+      cache.put( key + "/page-" + page + ".html", data );
+    } else {
+      logger.error( "Plugin session cache is not available." );
+    }
   }
 
   private Serializable computeCacheKey( final MasterReport report ) throws BeanException {
