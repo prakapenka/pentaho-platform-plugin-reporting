@@ -18,6 +18,8 @@
 package org.pentaho.reporting.platform.plugin.cache;
 
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.pentaho.platform.util.StringUtil;
 import org.pentaho.reporting.engine.classic.core.ClassicEngineBoot;
 import org.pentaho.reporting.libraries.base.config.ExtendedConfiguration;
@@ -36,7 +38,10 @@ import java.util.Set;
  * Default interface for cache backend
  */
 public class FileSystemCacheBackend implements ICacheBackend {
-  private static String DEFAULT_CACHE_PATH = "pentaho-reporting-plugin";
+
+  private static final Log logger = LogFactory.getLog( FileSystemCacheBackend.class );
+
+  private static String DEFAULT_CACHE_PATH = "pentaho-reporting-plugin/";
   private String cachePath = "";
 
   public FileSystemCacheBackend() {
@@ -61,7 +66,7 @@ public class FileSystemCacheBackend implements ICacheBackend {
       oos.close();
       fout.close();
     } catch ( final IOException e ) {
-      e.printStackTrace();
+      logger.error( "Can't write cache: ", e );
       return false;
     }
 
@@ -81,7 +86,7 @@ public class FileSystemCacheBackend implements ICacheBackend {
       objectinputstream.close();
       fis.close();
     } catch ( final Exception e ) {
-      e.printStackTrace();
+      logger.debug( "Can't read cache: ", e );
     }
     return result;
   }
@@ -96,7 +101,7 @@ public class FileSystemCacheBackend implements ICacheBackend {
       }
       return file.delete();
     } catch ( final Exception e ) {
-      e.printStackTrace();
+      logger.debug( "Can't delete cache: ", e );
       return false;
     }
   }
@@ -133,12 +138,17 @@ public class FileSystemCacheBackend implements ICacheBackend {
     if ( StringUtil.isEmpty( cachePath ) ) {
       cachePath = DEFAULT_CACHE_PATH;
     }
-    String s = System.getProperty( "java.io.tmpdir" ); //$NON-NLS-1$
-    char c = s.charAt( s.length() - 1 );
+    final String systemTmp = getSystemTmp();
+    return systemTmp + cachePath + getSeparator();
+  }
+
+  private String getSystemTmp() {
+    final String s = System.getProperty( "java.io.tmpdir" ); //$NON-NLS-1$
+    final char c = s.charAt( s.length() - 1 );
     if ( ( c != '/' ) && ( c != '\\' ) ) {
       System.setProperty( "java.io.tmpdir", s + "/" ); //$NON-NLS-1$//$NON-NLS-2$
     }
-    return s + cachePath + getSeparator();
+    return s;
   }
 
 }
