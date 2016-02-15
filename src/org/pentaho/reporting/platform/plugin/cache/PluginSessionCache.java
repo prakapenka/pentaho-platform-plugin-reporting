@@ -29,20 +29,12 @@ import org.pentaho.platform.engine.core.system.PentahoSystem;
 public class PluginSessionCache extends AbstractPluginCache {
 
   private static final Log logger = LogFactory.getLog( PluginSessionCache.class );
-  private static String LISTENER_ADDED_ATTRIBUTE = PluginSessionCache.class.getName() + "-ListenerAdded";
   private static final String SEGMENT = "session";
 
 
   public PluginSessionCache( final ICacheBackend backend ) {
     super( backend );
-    final IPentahoSession session = PentahoSessionHolder.getSession();
-    synchronized( session ) {
-      if ( Boolean.TRUE.equals( session.getAttribute( LISTENER_ADDED_ATTRIBUTE ) ) ) {
-        return;
-      }
-      PentahoSystem.addLogoutListener( new LogoutHandler() );
-      session.setAttribute( LISTENER_ADDED_ATTRIBUTE, Boolean.TRUE );
-    }
+    PentahoSystem.addLogoutListener( new LogoutHandler() );
   }
 
   /**
@@ -65,7 +57,7 @@ public class PluginSessionCache extends AbstractPluginCache {
     }
 
     /**
-     * Very straightforward clean up
+     * Very straightforward clean up when session ends
      *
      * @param session session
      */

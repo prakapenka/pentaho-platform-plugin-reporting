@@ -19,6 +19,9 @@ package org.pentaho.reporting.platform.plugin.cache;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
+/**
+ * Eviction strategy with clean up after first access
+ */
 public class PluginFirstSeeCache extends PluginTimeoutCache {
 
   private static final Log logger = LogFactory.getLog( PluginFirstSeeCache.class );
@@ -29,11 +32,18 @@ public class PluginFirstSeeCache extends PluginTimeoutCache {
     super( backend );
   }
 
+  /**
+   * Cleanup is performed on first time user sees the content otherwise it works the same way as timeout cache
+   *
+   * @param key key
+   * @return value
+   */
   @Override public Object get( final String key ) {
     final Object o = super.get( key );
     if ( o != null ) {
       logger.debug( "Cleaning first see cache: " + key );
       getBackend().purge( getKey( key ) );
+      getBackend().purge( getKey( key + TIMESTAMP ) );
     }
     return o;
   }

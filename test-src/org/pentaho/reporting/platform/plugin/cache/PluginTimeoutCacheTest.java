@@ -14,10 +14,35 @@
  *
  * Copyright (c) 2002-2016 Pentaho Corporation..  All rights reserved.
  */
+
 package org.pentaho.reporting.platform.plugin.cache;
 
-public interface IPluginCacheManager {
-  IPluginCache getCache( Class<? extends IPluginCache> tClass );
+import org.junit.Test;
 
-  <T extends IPluginCache> void addCache( T cache );
+import java.util.concurrent.TimeUnit;
+
+import static org.junit.Assert.*;
+
+/**
+ * Test timeout cache
+ */
+public class PluginTimeoutCacheTest extends AbstractCacheTest {
+
+  @Test
+  public void testPutGet() throws Exception {
+    final IPluginCache cache = iPluginCacheManager.getCache( PluginFirstSeeCache.class );
+    cache.put( SOME_KEY, SOME_VALUE );
+    assertNotNull( cache.get( SOME_KEY + PluginFirstSeeCache.TIMESTAMP ) );
+    assertEquals( cache.get( SOME_KEY ), SOME_VALUE );
+  }
+
+  @Test
+  public void testEviction() throws Exception {
+    final IPluginCache cache = new PluginTimeoutCache( fileSystemCacheBackend, 1, 1, TimeUnit.SECONDS );
+    cache.put( SOME_KEY, SOME_VALUE );
+    assertEquals( cache.get( SOME_KEY ), SOME_VALUE );
+    Thread.sleep( 3000 );
+    assertNull( cache.get( SOME_KEY ) );
+  }
+
 }

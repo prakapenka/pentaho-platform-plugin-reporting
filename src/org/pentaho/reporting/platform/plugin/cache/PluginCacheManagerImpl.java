@@ -22,8 +22,10 @@ import java.util.Map;
 public class PluginCacheManagerImpl implements IPluginCacheManager {
 
   private final Map<Class<? extends IPluginCache>, IPluginCache> strategies;
+  private final ICacheBackend backend;
 
   public PluginCacheManagerImpl( final ICacheBackend backend ) {
+    this.backend = backend;
     strategies = new HashMap<Class<? extends IPluginCache>, IPluginCache>();
     strategies.put( PluginSessionCache.class, new PluginSessionCache( backend ) );
     strategies.put( PluginFirstSeeCache.class, new PluginFirstSeeCache( backend ) );
@@ -32,5 +34,9 @@ public class PluginCacheManagerImpl implements IPluginCacheManager {
 
   @Override public IPluginCache getCache( final Class<? extends IPluginCache> tClass ) {
     return strategies.get( tClass );
+  }
+
+  @Override public <T extends IPluginCache> void addCache( T cache ) {
+    strategies.put( cache.getClass(), cache );
   }
 }

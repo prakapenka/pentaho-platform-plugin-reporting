@@ -17,11 +17,7 @@
 
 package org.pentaho.reporting.platform.plugin.cache;
 
-import junit.framework.Assert;
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
 import org.junit.Test;
-import org.pentaho.platform.engine.core.system.PentahoSystem;
 
 import java.io.File;
 import java.util.HashSet;
@@ -30,64 +26,51 @@ import java.util.Set;
 import static junit.framework.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
-import static org.mockito.Mockito.mock;
 
-public class FileSystemCacheBackendTest {
-  private static FileSystemCacheBackend defaultICacheBackend;
-  private static PentahoSystem pentahoSystem;
+public class FileSystemCacheBackendTest extends AbstractCacheTest {
+
 
   private static final String directoryKey = "id344324";
   private static final String key = "id344324" + "/file1.html";
   private static final String value = "SerializableObject";
 
-  @BeforeClass
-  public static void setUp() throws Exception {
-    pentahoSystem = mock( PentahoSystem.class );
-    defaultICacheBackend = new FileSystemCacheBackend();
-  }
-
-  @AfterClass
-  public static void tearDown() throws Exception {
-    Assert.assertTrue( defaultICacheBackend.purge( "" ) );
-  }
-
   @Test
   public void testWriteRead() throws Exception {
-    assertTrue( defaultICacheBackend.write( key, value ) );
-    assertEquals( defaultICacheBackend.read( key ), value );
+    assertTrue( fileSystemCacheBackend.write( key, value ) );
+    assertEquals( fileSystemCacheBackend.read( key ), value );
   }
 
   @Test
   public void testPurge() throws Exception {
-    assertTrue( defaultICacheBackend.write( key, value ) );
-    assertEquals( defaultICacheBackend.read( key ), value );
-    assertTrue( defaultICacheBackend.purge( key ) );
-    assertNull( defaultICacheBackend.read( key ) );
+    assertTrue( fileSystemCacheBackend.write( key, value ) );
+    assertEquals( fileSystemCacheBackend.read( key ), value );
+    assertTrue( fileSystemCacheBackend.purge( key ) );
+    assertNull( fileSystemCacheBackend.read( key ) );
   }
 
   @Test
   public void testPurgeDir() throws Exception {
-    assertTrue( defaultICacheBackend.write( key, value ) );
-    assertEquals( defaultICacheBackend.read( key ), value );
-    assertTrue( defaultICacheBackend.purge( directoryKey ) );
-    assertNull( defaultICacheBackend.read( key ) );
+    assertTrue( fileSystemCacheBackend.write( key, value ) );
+    assertEquals( fileSystemCacheBackend.read( key ), value );
+    assertTrue( fileSystemCacheBackend.purge( directoryKey ) );
+    assertNull( fileSystemCacheBackend.read( key ) );
   }
 
   @Test
   public void testlistKeys() throws Exception {
-    Set<String> resultSet = new HashSet<String>();
+    final Set<String> resultSet = new HashSet<String>();
 
     for ( int i = 0; i < 10; i++ ) {
-      String e = "file" + i + ".html";
-      defaultICacheBackend.write( directoryKey + defaultICacheBackend.getSeparator() + e, value );
-      resultSet.add( e );
+      final String filename = "file" + i + ".html";
+      fileSystemCacheBackend.write( directoryKey + fileSystemCacheBackend.getSeparator() + filename, value );
+      resultSet.add( filename );
     }
 
-    assertEquals( resultSet, defaultICacheBackend.listKeys( directoryKey ) );
+    assertEquals( resultSet, fileSystemCacheBackend.listKeys( directoryKey ) );
   }
 
   @Test
   public void testGetSeparator() throws Exception {
-    assertEquals( File.separator, defaultICacheBackend.getSeparator() );
+    assertEquals( File.separator, fileSystemCacheBackend.getSeparator() );
   }
 }
