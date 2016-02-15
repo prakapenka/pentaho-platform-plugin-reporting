@@ -74,10 +74,7 @@ public class CachingPageableHTMLOutput extends PageableHTMLOutput {
                                     final OutputStream outputStream, final int yieldRate )
     throws ReportProcessingException, IOException, ContentIOException {
 
-    final Object isReportCacheEnabled =
-      report.getAttribute( AttributeNames.Pentaho.NAMESPACE, AttributeNames.Pentaho.DYNAMIC_REPORT_CACHE );
-
-    if ( acceptedPage < 0 || Boolean.FALSE.equals( isReportCacheEnabled ) ) {
+    if ( acceptedPage < 0 ) {
       return generateNonCaching( report, acceptedPage, outputStream, yieldRate );
     }
 
