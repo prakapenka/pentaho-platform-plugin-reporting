@@ -80,9 +80,7 @@ public class FastExportReportOutputHandlerFactory extends DefaultReportOutputHan
     if ( isHtmlPageAvailable() == false ) {
       return null;
     }
-
-    final ExtendedConfiguration config = ClassicEngineBoot.getInstance().getExtendedConfig();
-    if ( getIsCachePageableHtmlContentEnabled( selector.getReport() ) ) {
+    if ( isCachePageableHtmlContentEnabled( selector.getReport() ) ) {
       // use the content repository
       final String contentHandlerPattern = computeContentHandlerPattern( selector );
       final CachingPageableHTMLOutput pageableHTMLOutput = new CachingPageableHTMLOutput();
@@ -93,11 +91,11 @@ public class FastExportReportOutputHandlerFactory extends DefaultReportOutputHan
     return super.createHtmlPageOutput( selector );
   }
 
-  protected boolean getIsCachePageableHtmlContentEnabled( MasterReport report ) {
+  protected boolean isCachePageableHtmlContentEnabled( final MasterReport report ) {
     final Object isAtReportLevelCacheEnabled =
       report.getAttribute( AttributeNames.Pentaho.NAMESPACE, AttributeNames.Pentaho.DYNAMIC_REPORT_CACHE );
     if ( isAtReportLevelCacheEnabled != null ) {
-      return Boolean.FALSE.equals( isAtReportLevelCacheEnabled ) ? false : true;
+      return Boolean.TRUE.equals( isAtReportLevelCacheEnabled );
     } else {
       final ExtendedConfiguration config = ClassicEngineBoot.getInstance().getExtendedConfig();
       return config.getBoolProperty( "org.pentaho.reporting.platform.plugin.output.CachePageableHtmlContent" );
