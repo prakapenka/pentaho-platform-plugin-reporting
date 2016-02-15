@@ -16,27 +16,18 @@
  */
 package org.pentaho.reporting.platform.plugin.cache;
 
-import java.util.HashMap;
-import java.util.Map;
-
 public class PluginCacheManagerImpl implements IPluginCacheManager {
 
-  private final Map<Class<? extends IPluginCache>, IPluginCache> strategies;
-  private final ICacheBackend backend;
+    private final IPluginCache strategy;
 
-  public PluginCacheManagerImpl( final ICacheBackend backend ) {
-    this.backend = backend;
-    strategies = new HashMap<Class<? extends IPluginCache>, IPluginCache>();
-    strategies.put( PluginSessionCache.class, new PluginSessionCache( backend ) );
-    strategies.put( PluginFirstSeeCache.class, new PluginFirstSeeCache( backend ) );
-    strategies.put( PluginTimeoutCache.class, new PluginTimeoutCache( backend ) );
-  }
 
-  @Override public IPluginCache getCache( final Class<? extends IPluginCache> tClass ) {
-    return strategies.get( tClass );
-  }
+    public PluginCacheManagerImpl(final IPluginCache strategy) {
+        this.strategy = strategy;
+    }
 
-  @Override public <T extends IPluginCache> void addCache( T cache ) {
-    strategies.put( cache.getClass(), cache );
-  }
+    @Override
+    public IPluginCache getCache() {
+        return strategy;
+    }
+
 }

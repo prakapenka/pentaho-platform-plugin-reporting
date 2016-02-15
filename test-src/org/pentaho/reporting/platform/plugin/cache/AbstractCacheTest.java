@@ -38,7 +38,7 @@ public class AbstractCacheTest {
   public static void setUp() throws Exception {
     pentahoSystem = mock( PentahoSystem.class );
     fileSystemCacheBackend = new FileSystemCacheBackend();
-    iPluginCacheManager = new PluginCacheManagerImpl( fileSystemCacheBackend );
+    iPluginCacheManager = new PluginCacheManagerImpl( fileSystemCacheBackend, strategy);
   }
 
   @AfterClass

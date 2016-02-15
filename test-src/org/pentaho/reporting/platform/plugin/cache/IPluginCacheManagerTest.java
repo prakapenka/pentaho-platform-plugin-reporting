@@ -44,7 +44,7 @@ public class IPluginCacheManagerTest {
 
   @Test
   public void testGetCache() throws Exception {
-    final IPluginCacheManager iPluginCacheManager = new PluginCacheManagerImpl( new FileSystemCacheBackend() );
+    final IPluginCacheManager iPluginCacheManager = new PluginCacheManagerImpl( new FileSystemCacheBackend(), strategy);
     assertNotNull( iPluginCacheManager.getCache( PluginSessionCache.class ) );
     assertNotNull( iPluginCacheManager.getCache( PluginTimeoutCache.class ) );
     assertNotNull( iPluginCacheManager.getCache( PluginFirstSeeCache.class ) );
@@ -52,7 +52,7 @@ public class IPluginCacheManagerTest {
 
   @Test
   public void testAddCache() throws Exception {
-    final IPluginCacheManager iPluginCacheManager = new PluginCacheManagerImpl( new FileSystemCacheBackend() );
+    final IPluginCacheManager iPluginCacheManager = new PluginCacheManagerImpl( new FileSystemCacheBackend(), strategy);
     iPluginCacheManager.addCache( new TestCache() );
     assertNotNull( iPluginCacheManager.getCache( TestCache.class ) );
   }

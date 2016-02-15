@@ -23,6 +23,10 @@ import org.pentaho.platform.api.engine.IPentahoSession;
 import org.pentaho.platform.engine.core.system.PentahoSessionHolder;
 import org.pentaho.platform.engine.core.system.PentahoSystem;
 
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+
 /**
  * Session cache implementation - cache is killed when http session stops
  */
@@ -43,10 +47,10 @@ public class PluginSessionCache extends AbstractPluginCache {
    * @param key key
    * @return concatenated value
    */
-  @Override String getKey( final String key ) {
+  @Override
+  protected List<String> computeKey(final String key ) {
     final IPentahoSession session = PentahoSessionHolder.getSession();
-    final String separator = getBackend().getSeparator();
-    return SEGMENT + separator + session.getId() + separator + key;
+    return Collections.unmodifiableList(Arrays.asList(SEGMENT, session.getId(), key));
   }
 
   /**
@@ -64,7 +68,7 @@ public class PluginSessionCache extends AbstractPluginCache {
     public void onLogout( final IPentahoSession session ) {
       logger.debug( "Shutting down session " + session.getId() );
       final ICacheBackend backend = getBackend();
-      backend.purge( SEGMENT + backend.getSeparator() + session.getId() );
+      backend.purge( Collections.unmodifiableList(Arrays.asList(SEGMENT, session.getId())));
       logger.debug( "Purged session cache " + session.getId() );
     }
   }

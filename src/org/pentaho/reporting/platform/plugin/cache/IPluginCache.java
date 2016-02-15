@@ -16,12 +16,9 @@
  */
 package org.pentaho.reporting.platform.plugin.cache;
 
-import java.io.Serializable;
-
-
 public interface IPluginCache {
 
-  boolean put( String key, Serializable value );
+    boolean put(String key, IReportContent value);
 
-  Object get( String key );
+    IReportContent get(String key);
 }

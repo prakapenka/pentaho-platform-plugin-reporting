@@ -53,7 +53,7 @@ public class PluginTimeoutCache extends AbstractPluginCache {
     millisToLive = daysToLive * MILLIS_IN_DAY;
   }
 
-  @Override String getKey( final String key ) {
+  @Override String computeKey(final String key ) {
     return getSegment() + getBackend().getSeparator() + key;
   }
 

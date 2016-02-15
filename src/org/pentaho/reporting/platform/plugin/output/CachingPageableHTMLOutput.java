@@ -70,7 +70,7 @@ public class CachingPageableHTMLOutput extends PageableHTMLOutput {
 
   public CachingPageableHTMLOutput() {
     final ICacheBackend iCacheBackend = ClassicEngineBoot.getInstance().getObjectFactory().get( ICacheBackend.class );
-    cacheManager = new PluginCacheManagerImpl( iCacheBackend );
+    cacheManager = new PluginCacheManagerImpl( iCacheBackend, strategy);
   }
 
   @Override

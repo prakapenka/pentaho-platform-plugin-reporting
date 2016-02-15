@@ -17,6 +17,7 @@
 package org.pentaho.reporting.platform.plugin.cache;
 
 import java.io.Serializable;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -31,7 +32,7 @@ public interface ICacheBackend {
    * @param value object
    * @return if operation succeed
    */
-  boolean write( String key, Serializable value );
+  boolean write(List<String> key, Serializable value );
 
   /**
    * Retrive object from storage
@@ -39,7 +40,7 @@ public interface ICacheBackend {
    * @param key path
    * @return object
    */
-  Object read( String key );
+  Serializable read( List<String> key );
 
   /**
    * Remove object from storage
@@ -47,18 +48,12 @@ public interface ICacheBackend {
    * @param key path
    * @return if operation succeed
    */
-  boolean purge( String key );
+  boolean purge( List<String> key );
 
   /**
    * Provides all keys that are children for key
    * @return set of keys
    */
-  Set<String> listKeys( String key );
-
-  /**
-   * Strorage specific separator
-   * @return separator
-   */
-  String getSeparator();
+  Set<String> listKeys( List<String> key );
 
 }

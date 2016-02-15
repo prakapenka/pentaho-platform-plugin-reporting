@@ -42,8 +42,8 @@ public class PluginFirstSeeCache extends PluginTimeoutCache {
     final Object o = super.get( key );
     if ( o != null ) {
       logger.debug( "Cleaning first see cache: " + key );
-      getBackend().purge( getKey( key ) );
-      getBackend().purge( getKey( key + TIMESTAMP ) );
+      getBackend().purge( computeKey( key ) );
+      getBackend().purge( computeKey( key + TIMESTAMP ) );
     }
     return o;
   }

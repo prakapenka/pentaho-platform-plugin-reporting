@@ -17,30 +17,32 @@
 package org.pentaho.reporting.platform.plugin.cache;
 
 
-import java.io.Serializable;
+import java.util.List;
 
 /**
  * Abstract implementation of caching policy
  */
 public abstract class AbstractPluginCache implements IPluginCache {
 
-  public AbstractPluginCache( final ICacheBackend backend ) {
-    this.backend = backend;
-  }
+    public AbstractPluginCache(final ICacheBackend backend) {
+        this.backend = backend;
+    }
 
-  private final ICacheBackend backend;
+    private final ICacheBackend backend;
 
-  @Override public boolean put( final String key, final Serializable value ) {
-    return backend.write( getKey( key ), value );
-  }
+    @Override
+    public boolean put(final String key, final IReportContent value) {
+        return backend.write(computeKey(key), value);
+    }
 
-  @Override public Object get( final String key ) {
-    return backend.read( getKey( key ) );
-  }
+    @Override
+    public IReportContent get(final String key) {
+        return (IReportContent) backend.read(computeKey(key));
+    }
 
-  protected ICacheBackend getBackend() {
-    return backend;
-  }
+    protected ICacheBackend getBackend() {
+        return backend;
+    }
 
-  abstract String getKey( final String key );
+    protected abstract List<String> computeKey(final String key);
 }
