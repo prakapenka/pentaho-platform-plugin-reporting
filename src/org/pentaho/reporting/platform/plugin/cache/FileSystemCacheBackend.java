@@ -15,13 +15,9 @@
  *  Copyright (c) 2002-2016 Pentaho Corporation..  All rights reserved.
  *
  */
-
 package org.pentaho.reporting.platform.plugin.cache;
 
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
-import org.pentaho.platform.api.engine.IApplicationContext;
-import org.pentaho.platform.engine.core.system.PentahoSystem;
+import org.apache.commons.io.FileUtils;
 import org.pentaho.platform.util.StringUtil;
 import org.pentaho.reporting.engine.classic.core.ClassicEngineBoot;
 import org.pentaho.reporting.libraries.base.config.ExtendedConfiguration;
@@ -39,22 +35,20 @@ import java.util.Set;
 /**
  * Default interface for cache backend
  */
-public class DefaultICacheBackend implements ICacheBackend {
-  private static final Log logger = LogFactory.getLog( PluginTimeoutCache.class );
-  private static String DEFAULT_CACHE_PATH = "system/tmp";
+public class FileSystemCacheBackend implements ICacheBackend {
+  private static String DEFAULT_CACHE_PATH = "pentaho-reporting-plugin";
   private String cachePath = "";
 
-  public DefaultICacheBackend() {
+  public FileSystemCacheBackend() {
     this.cachePath = getCachePath();
   }
 
   @Override
-  public boolean write( String key, final Serializable value ) {
-    final IApplicationContext appCtx = PentahoSystem.getApplicationContext();
-    final File file = new File( new StringBuilder( appCtx.getSolutionPath( cachePath ) ).append( key ).toString() );
+  public boolean write( final String key, final Serializable value ) {
+    final File file = new File( cachePath + key );
 
-    ObjectOutputStream oos = null;
-    FileOutputStream fout = null;
+    final ObjectOutputStream oos;
+    final FileOutputStream fout;
     try {
       file.getParentFile().mkdirs();
       if ( !file.exists() ) {
@@ -66,7 +60,7 @@ public class DefaultICacheBackend implements ICacheBackend {
       oos.writeObject( value );
       oos.close();
       fout.close();
-    } catch ( IOException e ) {
+    } catch ( final IOException e ) {
       e.printStackTrace();
       return false;
     }
@@ -75,49 +69,53 @@ public class DefaultICacheBackend implements ICacheBackend {
   }
 
   @Override
-  public Object read( String key ) {
-    ObjectInputStream objectinputstream = null;
+  public Object read( final String key ) {
+    final ObjectInputStream objectinputstream;
     Object result = null;
 
-    final IApplicationContext appCtx = PentahoSystem.getApplicationContext();
     try {
-      FileInputStream fis =
-        new FileInputStream( new StringBuilder( appCtx.getSolutionPath( cachePath ) ).append( key ).toString() );
+      final FileInputStream fis =
+        new FileInputStream( cachePath + key );
       objectinputstream = new ObjectInputStream( fis );
       result = objectinputstream.readObject();
       objectinputstream.close();
       fis.close();
-    } catch ( Exception e ) {
+    } catch ( final Exception e ) {
       e.printStackTrace();
     }
     return result;
   }
 
   @Override
-  public boolean purge( String key ) {
+  public boolean purge( final String key ) {
     try {
-      final IApplicationContext appCtx = PentahoSystem.getApplicationContext();
-      final File file = new File( new StringBuilder( appCtx.getSolutionPath( cachePath ) ).append( key ).toString() );
+      final File file = new File( cachePath + key );
+      if ( file.isDirectory() ) {
+        FileUtils.deleteDirectory( file );
+        return !file.exists();
+      }
       return file.delete();
-    } catch ( Exception e ) {
+    } catch ( final Exception e ) {
       e.printStackTrace();
       return false;
     }
   }
 
   @Override
-  public Set<String> listKeys( String directoryName ) {
-    Set<String> resultSet = new HashSet<String>();
-    File directory =
-      new File( new StringBuilder( cachePath ).append( getSeparator() ).append( directoryName ).toString() );
+  public Set<String> listKeys( final String directoryName ) {
+    final Set<String> resultSet = new HashSet<String>();
+    final File directory =
+      new File( cachePath + getSeparator() + directoryName );
 
     // get all the files from a directory
-    File[] fList = directory.listFiles();
-    for ( File file : fList ) {
-      if ( file.isFile() ) {
-        resultSet.add( file.getName() );
-      } else if ( file.isDirectory() ) {
-        listKeys( file.getAbsolutePath() );
+    final File[] fList = directory.listFiles();
+    if ( fList != null ) {
+      for ( final File file : fList ) {
+        if ( file.isFile() ) {
+          resultSet.add( file.getName() );
+        } else if ( file.isDirectory() ) {
+          listKeys( file.getAbsolutePath() );
+        }
       }
     }
     return resultSet;
@@ -135,7 +133,12 @@ public class DefaultICacheBackend implements ICacheBackend {
     if ( StringUtil.isEmpty( cachePath ) ) {
       cachePath = DEFAULT_CACHE_PATH;
     }
-    return cachePath;
+    String s = System.getProperty( "java.io.tmpdir" ); //$NON-NLS-1$
+    char c = s.charAt( s.length() - 1 );
+    if ( ( c != '/' ) && ( c != '\\' ) ) {
+      System.setProperty( "java.io.tmpdir", s + "/" ); //$NON-NLS-1$//$NON-NLS-2$
+    }
+    return s + cachePath + getSeparator();
   }
 
 }
