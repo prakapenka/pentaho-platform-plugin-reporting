@@ -14,29 +14,11 @@
  *
  * Copyright (c) 2002-2016 Pentaho Corporation..  All rights reserved.
  */
-
 package org.pentaho.reporting.platform.plugin.cache;
 
-import org.junit.Test;
-import org.pentaho.platform.engine.core.system.PentahoSessionHolder;
-import org.pentaho.platform.engine.core.system.StandaloneSession;
+public interface IReportContentCache {
 
-import static org.junit.Assert.*;
+  boolean put( String key, IReportContent value );
 
-/**
- * Test FirstSee Cache
- */
-public class PluginFirstSeeCacheTest extends AbstractCacheTest {
-
-  @Test
-  public void testPutGetEvict() throws Exception {
-    final IPluginCache cache = iPluginCacheManager.getCache( PluginFirstSeeCache.class );
-    cache.put( SOME_KEY, SOME_VALUE );
-    assertNotNull( cache.get( SOME_KEY + PluginFirstSeeCache.TIMESTAMP ) );
-    assertEquals( cache.get( SOME_KEY ), SOME_VALUE );
-    assertNull( cache.get( SOME_KEY + PluginFirstSeeCache.TIMESTAMP ) );
-    assertNull( cache.get( SOME_KEY ) );
-  }
-
-
+  IReportContent get( String key );
 }

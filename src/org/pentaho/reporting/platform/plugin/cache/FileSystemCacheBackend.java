@@ -18,11 +18,9 @@
 package org.pentaho.reporting.platform.plugin.cache;
 
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.lang.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.pentaho.platform.util.StringUtil;
-import org.pentaho.reporting.engine.classic.core.ClassicEngineBoot;
-import org.pentaho.reporting.libraries.base.config.ExtendedConfiguration;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -32,6 +30,7 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -41,16 +40,15 @@ public class FileSystemCacheBackend implements ICacheBackend {
 
   private static final Log logger = LogFactory.getLog( FileSystemCacheBackend.class );
 
-  private static String DEFAULT_CACHE_PATH = "pentaho-reporting-plugin/";
-  private String cachePath = "";
+  private String cachePath;
 
-  public FileSystemCacheBackend() {
-    this.cachePath = getCachePath();
+  public void setCachePath( final String cachePath ) {
+    this.cachePath = getSystemTmp() + cachePath;
   }
 
   @Override
-  public boolean write( final String key, final Serializable value ) {
-    final File file = new File( cachePath + key );
+  public boolean write( final List<String> key, final Serializable value ) {
+    final File file = new File( cachePath + StringUtils.join( key, File.separator ) );
 
     final ObjectOutputStream oos;
     final FileOutputStream fout;
@@ -74,13 +72,13 @@ public class FileSystemCacheBackend implements ICacheBackend {
   }
 
   @Override
-  public Object read( final String key ) {
+  public Serializable read( final List<String> key ) {
     final ObjectInputStream objectinputstream;
     Object result = null;
 
     try {
       final FileInputStream fis =
-        new FileInputStream( cachePath + key );
+        new FileInputStream( cachePath + StringUtils.join( key, File.separator ) );
       objectinputstream = new ObjectInputStream( fis );
       result = objectinputstream.readObject();
       objectinputstream.close();
@@ -88,13 +86,13 @@ public class FileSystemCacheBackend implements ICacheBackend {
     } catch ( final Exception e ) {
       logger.debug( "Can't read cache: ", e );
     }
-    return result;
+    return (Serializable) result;
   }
 
   @Override
-  public boolean purge( final String key ) {
+  public boolean purge( final List<String> key ) {
     try {
-      final File file = new File( cachePath + key );
+      final File file = new File( cachePath + StringUtils.join( key, File.separator ) );
       if ( file.isDirectory() ) {
         FileUtils.deleteDirectory( file );
         return !file.exists();
@@ -107,39 +105,16 @@ public class FileSystemCacheBackend implements ICacheBackend {
   }
 
   @Override
-  public Set<String> listKeys( final String directoryName ) {
+  public Set<String> listKeys( final List<String> key ) {
     final Set<String> resultSet = new HashSet<String>();
-    final File directory =
-      new File( cachePath + getSeparator() + directoryName );
-
-    // get all the files from a directory
+    final File directory = new File( cachePath + StringUtils.join( key, File.separator ) );
     final File[] fList = directory.listFiles();
     if ( fList != null ) {
       for ( final File file : fList ) {
-        if ( file.isFile() ) {
-          resultSet.add( file.getName() );
-        } else if ( file.isDirectory() ) {
-          listKeys( file.getAbsolutePath() );
-        }
+        resultSet.add( file.getName() );
       }
     }
     return resultSet;
-  }
-
-  @Override
-  public String getSeparator() {
-    return File.separator;
-  }
-
-  private String getCachePath() {
-    final ExtendedConfiguration config = ClassicEngineBoot.getInstance().getExtendedConfig();
-    String cachePath =
-      config.getConfigProperty( "org.pentaho.reporting.platform.plugin.cache.ICacheBackendPath" );
-    if ( StringUtil.isEmpty( cachePath ) ) {
-      cachePath = DEFAULT_CACHE_PATH;
-    }
-    final String systemTmp = getSystemTmp();
-    return systemTmp + cachePath + getSeparator();
   }
 
   private String getSystemTmp() {

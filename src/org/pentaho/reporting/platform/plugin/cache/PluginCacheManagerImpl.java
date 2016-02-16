@@ -18,16 +18,16 @@ package org.pentaho.reporting.platform.plugin.cache;
 
 public class PluginCacheManagerImpl implements IPluginCacheManager {
 
-    private final IPluginCache strategy;
+  private IReportContentCache strategy;
 
 
-    public PluginCacheManagerImpl(final IPluginCache strategy) {
-        this.strategy = strategy;
-    }
+  public PluginCacheManagerImpl( final IReportContentCache strategy ) {
+    this.strategy = strategy;
+  }
 
-    @Override
-    public IPluginCache getCache() {
-        return strategy;
-    }
+  @Override
+  public IReportContentCache getCache() {
+    return strategy;
+  }
 
 }

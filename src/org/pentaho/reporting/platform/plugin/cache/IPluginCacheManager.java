@@ -17,5 +17,5 @@
 package org.pentaho.reporting.platform.plugin.cache;
 
 public interface IPluginCacheManager {
-  IPluginCache getCache();
+  IReportContentCache getCache();
 }

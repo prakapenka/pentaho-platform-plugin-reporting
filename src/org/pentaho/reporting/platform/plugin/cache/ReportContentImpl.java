@@ -14,35 +14,31 @@
  *
  * Copyright (c) 2002-2016 Pentaho Corporation..  All rights reserved.
  */
-package org.pentaho.reporting.platform.plugin.cache;
 
+package org.pentaho.reporting.platform.plugin.cache;
 
 import java.util.List;
 
 /**
- * Abstract implementation of caching policy
+ * Report representation for atomic cache operations
  */
-public abstract class AbstractPluginCache implements IPluginCache {
+public class ReportContentImpl implements IReportContent {
 
-    public AbstractPluginCache(final ICacheBackend backend) {
-        this.backend = backend;
-    }
+  public ReportContentImpl( final int pageCount, final List<byte[]> reportData ) {
 
-    private final ICacheBackend backend;
+    this.pageCount = pageCount;
+    this.reportData = reportData;
+  }
 
-    @Override
-    public boolean put(final String key, final IReportContent value) {
-        return backend.write(computeKey(key), value);
-    }
+  private final int pageCount;
 
-    @Override
-    public IReportContent get(final String key) {
-        return (IReportContent) backend.read(computeKey(key));
-    }
+  private final List<byte[]> reportData;
 
-    protected ICacheBackend getBackend() {
-        return backend;
-    }
+  @Override public int getPageCount() {
+    return pageCount;
+  }
 
-    protected abstract List<String> computeKey(final String key);
+  @Override public byte[] getPageData( final int page ) {
+    return reportData.get( page );
+  }
 }

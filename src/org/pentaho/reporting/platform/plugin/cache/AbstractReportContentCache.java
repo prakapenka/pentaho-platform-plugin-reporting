@@ -16,9 +16,33 @@
  */
 package org.pentaho.reporting.platform.plugin.cache;
 
-public interface IPluginCache {
 
-    boolean put(String key, IReportContent value);
+import java.util.List;
 
-    IReportContent get(String key);
+/**
+ * Abstract implementation of caching policy
+ */
+public abstract class AbstractReportContentCache implements IReportContentCache {
+
+  public AbstractReportContentCache( final ICacheBackend backend ) {
+    this.backend = backend;
+  }
+
+  private final ICacheBackend backend;
+
+  @Override
+  public boolean put( final String key, final IReportContent value ) {
+    return backend.write( computeKey( key ), value );
+  }
+
+  @Override
+  public IReportContent get( final String key ) {
+    return (IReportContent) backend.read( computeKey( key ) );
+  }
+
+  protected ICacheBackend getBackend() {
+    return backend;
+  }
+
+  protected abstract List<String> computeKey( final String key );
 }

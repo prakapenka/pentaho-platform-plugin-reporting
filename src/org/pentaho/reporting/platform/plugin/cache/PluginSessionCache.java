@@ -30,7 +30,7 @@ import java.util.List;
 /**
  * Session cache implementation - cache is killed when http session stops
  */
-public class PluginSessionCache extends AbstractPluginCache {
+public class PluginSessionCache extends AbstractReportContentCache {
 
   private static final Log logger = LogFactory.getLog( PluginSessionCache.class );
   private static final String SEGMENT = "session";
@@ -48,9 +48,9 @@ public class PluginSessionCache extends AbstractPluginCache {
    * @return concatenated value
    */
   @Override
-  protected List<String> computeKey(final String key ) {
+  protected List<String> computeKey( final String key ) {
     final IPentahoSession session = PentahoSessionHolder.getSession();
-    return Collections.unmodifiableList(Arrays.asList(SEGMENT, session.getId(), key));
+    return Collections.unmodifiableList( Arrays.asList( SEGMENT, session.getId(), key ) );
   }
 
   /**
@@ -68,7 +68,7 @@ public class PluginSessionCache extends AbstractPluginCache {
     public void onLogout( final IPentahoSession session ) {
       logger.debug( "Shutting down session " + session.getId() );
       final ICacheBackend backend = getBackend();
-      backend.purge( Collections.unmodifiableList(Arrays.asList(SEGMENT, session.getId())));
+      backend.purge( Collections.unmodifiableList( Arrays.asList( SEGMENT, session.getId() ) ) );
       logger.debug( "Purged session cache " + session.getId() );
     }
   }
