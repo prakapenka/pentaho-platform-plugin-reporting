@@ -157,7 +157,7 @@ public class CachingPageableHTMLOutput extends PageableHTMLOutput {
     final PageableHtmlOutputProcessor outputProcessor = (PageableHtmlOutputProcessor) proc.getOutputProcessor();
     outputProcessor.setFlowSelector( new DisplayAllFlowSelector() );
 
-    final List<byte[]> pages = new ArrayList<byte[]>();
+    final List<byte[]> pages = new ArrayList<>();
     try {
       final ZipRepository targetRepository = reinitOutputTargetForCaching();
       proc.processReport();
@@ -170,7 +170,7 @@ public class CachingPageableHTMLOutput extends PageableHTMLOutput {
           final String name = ci.getName();
           final int pageNumber = extractPageFromName( name );
           if ( pageNumber >= 0 ) {
-            pages.add( pageNumber, read( ci.getInputStream() ) );
+            pages.add( read( ci.getInputStream() ) );
           }
         }
       }
@@ -239,13 +239,15 @@ public class CachingPageableHTMLOutput extends PageableHTMLOutput {
 
 
   public IReportContent getCachedContent( final String key ) {
-    final IPluginCacheManager cacheManager = PentahoSystem.get( IPluginCacheManager.class );
+    final IPluginCacheManager cacheManager = PentahoSystem.get( IPluginCacheManager.class, "plugin-cache-manager",
+      null );
     final IReportContentCache cache = cacheManager.getCache();
     return cache.get( key );
   }
 
   private void persistContent( final String key, final IReportContent data ) {
-    final IPluginCacheManager cacheManager = PentahoSystem.get( IPluginCacheManager.class );
+    final IPluginCacheManager cacheManager = PentahoSystem.get( IPluginCacheManager.class, "plugin-cache-manager",
+      null );
     final IReportContentCache cache = cacheManager.getCache();
     if ( cache != null ) {
       cache.put( key, data );

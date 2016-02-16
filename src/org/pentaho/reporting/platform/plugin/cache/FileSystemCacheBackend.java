@@ -29,6 +29,7 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -39,6 +40,8 @@ import java.util.Set;
 public class FileSystemCacheBackend implements ICacheBackend {
 
   private static final Log logger = LogFactory.getLog( FileSystemCacheBackend.class );
+  public static final String REPLACEMENT = "_";
+  public static final String SLASHES = "[/\\\\]+";
 
   private String cachePath;
 
@@ -48,7 +51,7 @@ public class FileSystemCacheBackend implements ICacheBackend {
 
   @Override
   public boolean write( final List<String> key, final Serializable value ) {
-    final File file = new File( cachePath + StringUtils.join( key, File.separator ) );
+    final File file = new File( cachePath + StringUtils.join( cleanKey( key ), File.separator ) );
 
     final ObjectOutputStream oos;
     final FileOutputStream fout;
@@ -75,10 +78,9 @@ public class FileSystemCacheBackend implements ICacheBackend {
   public Serializable read( final List<String> key ) {
     final ObjectInputStream objectinputstream;
     Object result = null;
-
     try {
       final FileInputStream fis =
-        new FileInputStream( cachePath + StringUtils.join( key, File.separator ) );
+        new FileInputStream( cachePath + StringUtils.join( cleanKey( key ), File.separator ) );
       objectinputstream = new ObjectInputStream( fis );
       result = objectinputstream.readObject();
       objectinputstream.close();
@@ -92,7 +94,7 @@ public class FileSystemCacheBackend implements ICacheBackend {
   @Override
   public boolean purge( final List<String> key ) {
     try {
-      final File file = new File( cachePath + StringUtils.join( key, File.separator ) );
+      final File file = new File( cachePath + StringUtils.join( cleanKey( key ), File.separator ) );
       if ( file.isDirectory() ) {
         FileUtils.deleteDirectory( file );
         return !file.exists();
@@ -124,6 +126,14 @@ public class FileSystemCacheBackend implements ICacheBackend {
       System.setProperty( "java.io.tmpdir", s + "/" ); //$NON-NLS-1$//$NON-NLS-2$
     }
     return s;
+  }
+
+  private static List<String> cleanKey( final List<String> key ) {
+    final List<String> clean = new ArrayList<>( key.size() );
+    for ( final String keyPart : key ) {
+      clean.add( keyPart.replaceAll( SLASHES, REPLACEMENT ) );
+    }
+    return clean;
   }
 
 }

@@ -32,7 +32,7 @@ public interface ICacheBackend {
    * @param value object
    * @return if operation succeed
    */
-  boolean write(List<String> key, Serializable value );
+  boolean write( List<String> key, Serializable value );
 
   /**
    * Retrive object from storage
@@ -52,6 +52,7 @@ public interface ICacheBackend {
 
   /**
    * Provides all keys that are children for key
+   *
    * @return set of keys
    */
   Set<String> listKeys( List<String> key );

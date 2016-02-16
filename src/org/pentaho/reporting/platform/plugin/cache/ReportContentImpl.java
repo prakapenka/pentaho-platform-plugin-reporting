@@ -41,4 +41,5 @@ public class ReportContentImpl implements IReportContent {
   @Override public byte[] getPageData( final int page ) {
     return reportData.get( page );
   }
+
 }

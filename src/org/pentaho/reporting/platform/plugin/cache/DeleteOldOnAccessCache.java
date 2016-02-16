@@ -24,8 +24,7 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * Eviction strategy that kills cache by specified timeout Periodically it checks all each stored key and removes
- * expired ones
+ * Eviction strategy that kills old cache when accessed
  */
 public class DeleteOldOnAccessCache extends AbstractReportContentCache {
 
@@ -43,6 +42,11 @@ public class DeleteOldOnAccessCache extends AbstractReportContentCache {
     this.millisToLive = MILLIS_IN_DAY * daysToLive;
   }
 
+  /*for testing purposes*/
+  protected void setMillisToLive( long millisToLive ) {
+    this.millisToLive = millisToLive;
+  }
+
   @Override protected List<String> computeKey( final String key ) {
     return Collections.unmodifiableList( Arrays.asList( SEGMENT, key ) );
   }
@@ -58,7 +62,7 @@ public class DeleteOldOnAccessCache extends AbstractReportContentCache {
     cleanUp();
     if ( super.put( key, value ) ) {
       return super.getBackend()
-        .write( Collections.unmodifiableList( Arrays.asList( SEGMENT, key, TIMESTAMP ) ), System.currentTimeMillis() );
+        .write( Collections.unmodifiableList( Arrays.asList( SEGMENT, key + TIMESTAMP ) ), System.currentTimeMillis() );
     }
     return false;
   }
