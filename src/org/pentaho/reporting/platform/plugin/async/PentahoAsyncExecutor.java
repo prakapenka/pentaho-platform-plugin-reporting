@@ -6,8 +6,16 @@ import org.pentaho.platform.api.engine.ILogoutListener;
 import org.pentaho.platform.api.engine.IPentahoSession;
 import org.pentaho.platform.engine.core.system.PentahoSessionHolder;
 import org.pentaho.platform.engine.core.system.PentahoSystem;
+import org.pentaho.reporting.platform.plugin.staging.AsyncJobFileStagingHandler;
 
+import java.io.File;
+import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.FileVisitResult;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.*;
 import java.util.concurrent.*;
 
@@ -21,7 +29,6 @@ public class PentahoAsyncExecutor implements ILogoutListener {
 
   private static final Log log = LogFactory.getLog( PentahoAsyncExecutor.class );
 
-  //TODO composite value?
   private Map<CompositeKey, Future<InputStream>> tasks = new ConcurrentHashMap<>();
   private Map<CompositeKey, AsyncReportStatusListener> listeners = new ConcurrentHashMap<>();
 
@@ -75,10 +82,10 @@ public class PentahoAsyncExecutor implements ILogoutListener {
     UUID id = UUID.randomUUID();
     CompositeKey key = new CompositeKey( session, id );
 
-    AsyncReportStatusListener listener = new AsyncReportStatusListener( task.getReportPath() , id, task.getMimeType() );
+    AsyncReportStatusListener listener = new AsyncReportStatusListener( task.getReportPath(), id, task.getMimeType() );
     task.setListener( listener );
 
-    log.debug("register async execution for task: " + task.toString());
+    log.debug( "register async execution for task: " + task.toString() );
 
     Future<InputStream> result = executorService.submit( task );
     tasks.put( key, result );
@@ -107,7 +114,6 @@ public class PentahoAsyncExecutor implements ILogoutListener {
     return runningTask.clone();
   }
 
-  //TODO cancel all running tasks!
   @Override
   public void onLogout( IPentahoSession iPentahoSession ) {
     if ( log.isDebugEnabled() ) {
@@ -116,7 +122,40 @@ public class PentahoAsyncExecutor implements ILogoutListener {
     }
     for ( Map.Entry<CompositeKey, Future<InputStream>> entry : tasks.entrySet() ) {
       if ( entry.getKey().getSessionId().equals( iPentahoSession.getId() ) ) {
+        //TODO future cancel impl.
         entry.getValue().cancel( true );
+      }
+    }
+
+    // do it generic way according to staging handler was used?
+    Path stagingSessionDir = AsyncJobFileStagingHandler.getStagingDirPath().resolve( iPentahoSession.getId() );
+    File sessionStagingContent = stagingSessionDir.toFile();
+    if ( sessionStagingContent.exists() ) {
+      try {
+        Files.walkFileTree( stagingSessionDir, new SimpleFileVisitor<Path>() {
+          @Override
+          public FileVisitResult visitFile( Path file, BasicFileAttributes attrs ) throws IOException {
+            Files.delete( file );
+            return FileVisitResult.CONTINUE;
+          }
+          @Override
+          public FileVisitResult visitFileFailed( Path file, IOException e ) throws IOException {
+            Files.delete( file );
+            return FileVisitResult.CONTINUE;
+          }
+
+          @Override
+          public FileVisitResult postVisitDirectory( Path dir, IOException e ) throws IOException {
+            if ( e == null ) {
+              Files.delete( dir );
+              return FileVisitResult.CONTINUE;
+            } else {
+              throw e;
+            }
+          }
+        } );
+      } catch ( IOException e ) {
+        log.debug( "Unable delete temp files on session logout." );
       }
     }
   }

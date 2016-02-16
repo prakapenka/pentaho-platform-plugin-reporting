@@ -30,11 +30,16 @@ import org.pentaho.reporting.engine.classic.core.util.StagingMode;
 import org.pentaho.reporting.platform.plugin.TrackingOutputStream;
 
 import java.io.*;
+import java.nio.file.DirectoryStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.UUID;
 
 /**
  * Async stage handler.
- * Сдщыу to TEMP file handler but:
- * - do not keep link to passed output streamб вo not write to output stream passed in constructor.
+ * Write to TEMP file but:
+ * - do not keep link to passed output stream not write to output stream passed in constructor.
  * - live between requests.
  * - require to re-set output stream for ready-to-fetch-request to fetch ready to use data.
  *
@@ -47,45 +52,52 @@ public class AsyncJobFileStagingHandler extends AbstractStagingHandler {
   private static String PREFIX = "repasyncstg";
   private static String POSTFIX = ".tmp";
 
+  public static final String STAGING_DIR_ATTR = "asyncstaging";
+
   private static final Log logger = LogFactory.getLog( AsyncJobFileStagingHandler.class );
 
   private TrackingOutputStream fileTrackingStream;
+  // package private for testing purpose
   File tmpFile;
 
+  private static String stringParentDir = PentahoSystem.getApplicationContext().getSolutionPath( "system/tmp" );
+
   public AsyncJobFileStagingHandler( OutputStream outputStream, IPentahoSession userSession ) throws IOException {
-    super( outputStream, userSession );
+    // do not write to output stream passed in constructor,
+    // do not keep link to parent output stream, just forget it,
+    // do not to leak.
+    super( null, userSession );
   }
 
   @Override
   protected void initialize() throws IOException {
     logger.trace( "Staging mode set - TEMP_FILE, async report generation" );
+    if ( stringParentDir == null ) {
+      throw new IOException( "can't find system/tmp dir, asycn staging not possible." );
+    }
 
-    // do not write to output stream passed in constructor,
-    // do not keep link to parent output stream, just forget it.
-    //TODO remove output stream from constructor?
-    super.outputStream = null;
+    // /system/tmp/<STAGING_DIR_ATTR>/<session-id>/tmpFile
+    Path stagingExecutionFolder = getStagingExecutionFolder();
+    Path tempFilePath = stagingExecutionFolder.resolve( PREFIX + UUIDUtil.getUUIDAsString().substring( 0, 10 ) + "-" );
+    tmpFile = tempFilePath.toFile();
 
-    // prepare staging handler for async write
-    final IApplicationContext appCtx = PentahoSystem.getApplicationContext();
-    // Use the deleter framework for safety...
-    if ( userSession.getId().length() >= 10 ) {
-      tmpFile = appCtx.createTempFile( userSession, PREFIX, POSTFIX, true );
+    final Object fileDeleterObj = userSession.getAttribute( ITempFileDeleter.DELETER_SESSION_VARIABLE );
+    if ( fileDeleterObj instanceof ITempFileDeleter ) {
+      ITempFileDeleter fileDeleter = ITempFileDeleter.class.cast( fileDeleterObj );
+      fileDeleter.trackTempFile( tmpFile );
     } else {
-      // Workaround bug in appContext.createTempFile ... :-(
-      //TODO what this bug number???
-      final File parentDir = new File( appCtx.getSolutionPath( "system/tmp" ) ); //$NON-NLS-1$
-      final ITempFileDeleter fileDeleter =
-          (ITempFileDeleter) userSession.getAttribute( ITempFileDeleter.DELETER_SESSION_VARIABLE );
-      final String newPrefix = PREFIX + UUIDUtil.getUUIDAsString().substring( 0, 10 ) + "-";
-      tmpFile = File.createTempFile( newPrefix, POSTFIX, parentDir );
-      if ( fileDeleter != null ) {
-        fileDeleter.trackTempFile( tmpFile );
-      } else {
-        // There is no deleter, so cleanup on VM exit. (old behavior)
-        tmpFile.deleteOnExit();
-      }
+      logger.debug( "Not found: " + ITempFileDeleter.class.getCanonicalName() );
+      tmpFile.deleteOnExit();
     }
     fileTrackingStream = new TrackingOutputStream( new BufferedOutputStream( new FileOutputStream( tmpFile ) ) );
+  }
+
+  private Path getStagingExecutionFolder() {
+    return getStagingDirPath().resolve( userSession.getId() );
+  }
+
+  public static Path getStagingDirPath() {
+    return Paths.get( stringParentDir ).resolve( STAGING_DIR_ATTR );
   }
 
   @Override
@@ -110,16 +122,7 @@ public class AsyncJobFileStagingHandler extends AbstractStagingHandler {
 
   @Override
   public void complete() throws IOException {
-    if ( outputStream == null ) {
-      throw new IOException( "Please set effective ouputStream" );
-    }
-    IOUtils.closeQuietly( fileTrackingStream );
-    final BufferedInputStream bis = new BufferedInputStream( new FileInputStream( tmpFile ) );
-    try {
-      IOUtils.copy( bis, outputStream );
-    } finally {
-      IOUtils.closeQuietly( bis );
-    }
+    logger.debug(  "Call NO-OP complete: " + this.getClass().getName() );
   }
 
   public InputStream getStagingContent() throws FileNotFoundException {
