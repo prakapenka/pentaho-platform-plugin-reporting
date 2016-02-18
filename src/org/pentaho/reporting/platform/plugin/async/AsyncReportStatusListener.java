@@ -24,6 +24,7 @@ import org.pentaho.reporting.engine.classic.core.event.ReportProgressListener;
 import java.util.LinkedList;
 import java.util.Queue;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 /**
  * Simple bean with async execution status
@@ -37,7 +38,7 @@ public class AsyncReportStatusListener implements AsyncReportListener, ReportPro
   private AsyncExecutionStatus status = AsyncExecutionStatus.QUEUED;
   private int progress = 0;
 
-  private Queue<ReportProgressEvent> events = new LinkedList<>();
+  private Queue<ReportProgressEvent> events = new ConcurrentLinkedQueue<>();
 
   private String mimeType;
 
@@ -84,17 +85,17 @@ public class AsyncReportStatusListener implements AsyncReportListener, ReportPro
 
   @Override
   public void reportProcessingStarted( ReportProgressEvent event ) {
-    events.add(event);
+    events.add( event );
   }
 
   @Override
   public void reportProcessingUpdate( ReportProgressEvent event ) {
-    events.add(event);
+    events.add( event );
   }
 
   @Override
   public void reportProcessingFinished( ReportProgressEvent event ) {
-    events.add(event);
+    events.add( event );
   }
 
   // is not thread safe but we don't need it
@@ -109,12 +110,11 @@ public class AsyncReportStatusListener implements AsyncReportListener, ReportPro
 
   @Override
   public String toString() {
-    return "AsyncReportStatusListener{" +
-        "path='" + path + '\'' +
-        ", uuid=" + uuid +
-        ", status=" + status +
-        ", progress=" + progress +
-        '}';
+    return "AsyncReportStatusListener{"
+        + "path='" + path + '\''
+        + ", uuid=" + uuid
+        + ", status=" + status
+        + ", progress=" + progress
+        + '}';
   }
-
 }

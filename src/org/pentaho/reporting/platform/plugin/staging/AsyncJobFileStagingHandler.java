@@ -21,7 +21,6 @@ package org.pentaho.reporting.platform.plugin.staging;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.pentaho.platform.api.engine.IApplicationContext;
 import org.pentaho.platform.api.engine.IPentahoSession;
 import org.pentaho.platform.api.util.ITempFileDeleter;
 import org.pentaho.platform.engine.core.system.PentahoSystem;
@@ -29,12 +28,17 @@ import org.pentaho.platform.util.UUIDUtil;
 import org.pentaho.reporting.engine.classic.core.util.StagingMode;
 import org.pentaho.reporting.platform.plugin.TrackingOutputStream;
 
-import java.io.*;
-import java.nio.file.DirectoryStream;
-import java.nio.file.Files;
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.UUID;
 
 /**
  * Async stage handler.
@@ -49,7 +53,6 @@ import java.util.UUID;
  */
 public class AsyncJobFileStagingHandler extends AbstractStagingHandler {
 
-  private static String PREFIX = "repasyncstg";
   private static String POSTFIX = ".tmp";
 
   public static final String STAGING_DIR_ATTR = "asyncstaging";
@@ -60,13 +63,14 @@ public class AsyncJobFileStagingHandler extends AbstractStagingHandler {
   // package private for testing purpose
   File tmpFile;
 
-  private static String stringParentDir = PentahoSystem.getApplicationContext().getSolutionPath( "system/tmp" );
+  private static String stringParentDir = ".";
 
-  public AsyncJobFileStagingHandler( OutputStream outputStream, IPentahoSession userSession ) throws IOException {
+  public AsyncJobFileStagingHandler( OutputStream outputStream, IPentahoSession userSession, String stringParentDir ) throws IOException {
     // do not write to output stream passed in constructor,
-    // do not keep link to parent output stream, just forget it,
+    // do not keep link to parent output stream, just forget it.
     // do not to leak.
     super( null, userSession );
+    this.stringParentDir = stringParentDir;
   }
 
   @Override
@@ -77,8 +81,13 @@ public class AsyncJobFileStagingHandler extends AbstractStagingHandler {
     }
 
     // /system/tmp/<STAGING_DIR_ATTR>/<session-id>/tmpFile
-    Path stagingExecutionFolder = getStagingExecutionFolder();
-    Path tempFilePath = stagingExecutionFolder.resolve( PREFIX + UUIDUtil.getUUIDAsString().substring( 0, 10 ) + "-" );
+    Path stagingExecutionFolder = getStagingExecutionFolder( userSession );
+    if ( !stagingExecutionFolder.toFile().exists() ) {
+      if ( !stagingExecutionFolder.toFile().mkdirs() ) {
+        throw new IOException( "Unable to create staging async directory" );
+      }
+    }
+    Path tempFilePath = stagingExecutionFolder.resolve( UUIDUtil.getUUIDAsString() + POSTFIX );
     tmpFile = tempFilePath.toFile();
 
     final Object fileDeleterObj = userSession.getAttribute( ITempFileDeleter.DELETER_SESSION_VARIABLE );
@@ -92,7 +101,7 @@ public class AsyncJobFileStagingHandler extends AbstractStagingHandler {
     fileTrackingStream = new TrackingOutputStream( new BufferedOutputStream( new FileOutputStream( tmpFile ) ) );
   }
 
-  private Path getStagingExecutionFolder() {
+  private Path getStagingExecutionFolder( IPentahoSession userSession ) {
     return getStagingDirPath().resolve( userSession.getId() );
   }
 
@@ -164,10 +173,6 @@ public class AsyncJobFileStagingHandler extends AbstractStagingHandler {
 
     public StagingInputStream( InputStream in ) {
       super( in );
-    }
-
-    public StagingInputStream( InputStream in, int size ) {
-      super( in, size );
     }
 
     @Override

@@ -1,29 +1,30 @@
 package org.pentaho.reporting.platform.plugin.async;
 
+import org.apache.commons.io.FileUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.pentaho.platform.api.engine.ILogoutListener;
 import org.pentaho.platform.api.engine.IPentahoSession;
-import org.pentaho.platform.engine.core.system.PentahoSessionHolder;
+import org.pentaho.platform.api.engine.IPentahoSystemListener;
 import org.pentaho.platform.engine.core.system.PentahoSystem;
 import org.pentaho.reporting.platform.plugin.staging.AsyncJobFileStagingHandler;
 
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.file.FileVisitResult;
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.SimpleFileVisitor;
-import java.nio.file.attribute.BasicFileAttributes;
-import java.util.*;
-import java.util.concurrent.*;
+import java.util.Map;
+import java.util.Objects;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 /**
  * Created by dima.prokopenko@gmail.com on 2/2/2016.
  */
-//TODO system shutdown call?
-public class PentahoAsyncExecutor implements ILogoutListener {
+public class PentahoAsyncExecutor implements ILogoutListener, IPentahoSystemListener {
 
   public static final String BEAN_NAME = "reporting-async-thread-pool";
 
@@ -39,7 +40,8 @@ public class PentahoAsyncExecutor implements ILogoutListener {
    *
    * @param capacity
    */
-  private PentahoAsyncExecutor( int capacity ) {
+  //package private visibility for testing purposes
+  PentahoAsyncExecutor( int capacity ) {
     log.info( "Initialized reporting  async execution fixed thread pool with capacity: " + capacity );
     executorService = Executors.newFixedThreadPool( capacity );
     PentahoSystem.addLogoutListener( this );
@@ -60,25 +62,24 @@ public class PentahoAsyncExecutor implements ILogoutListener {
       return sessionId;
     }
 
-    @Override
-    public boolean equals( Object o ) {
-      if ( this == o )
+    @Override public boolean equals( Object o ) {
+      if ( this == o ) {
         return true;
-      if ( o == null || getClass() != o.getClass() )
+      }
+      if ( o == null || getClass() != o.getClass() ) {
         return false;
+      }
       CompositeKey that = (CompositeKey) o;
       return Objects.equals( sessionId, that.sessionId ) && Objects.equals( uuid, that.uuid );
     }
 
-    @Override
-    public int hashCode() {
+    @Override public int hashCode() {
       return Objects.hash( sessionId, uuid );
     }
   }
 
-  public UUID addTask( PentahoAsyncReportExecution task ) {
+  public UUID addTask( PentahoAsyncReportExecution task, IPentahoSession session ) {
 
-    final IPentahoSession session = PentahoSessionHolder.getSession();
     UUID id = UUID.randomUUID();
     CompositeKey key = new CompositeKey( session, id );
 
@@ -93,70 +94,79 @@ public class PentahoAsyncExecutor implements ILogoutListener {
     return id;
   }
 
-  public Future<InputStream> getFuture( UUID id ) {
+  public Future<InputStream> getFuture( UUID id, IPentahoSession session ) {
     if ( id == null ) {
       throw new NullPointerException( "uuid is null" );
     }
-    // get effective session for every call
-    final IPentahoSession session = PentahoSessionHolder.getSession();
+    if ( session == null ) {
+      throw new NullPointerException( "Session is null" );
+    }
     return tasks.get( new CompositeKey( session, id ) );
   }
 
-  public AsyncReportState getReportState( UUID id ) {
+  public AsyncReportState getReportState( UUID id, IPentahoSession session ) {
     if ( id == null ) {
       throw new NullPointerException( "uuid is null" );
     }
-    // get effective session for every call
-    final IPentahoSession session = PentahoSessionHolder.getSession();
+    if ( session == null ) {
+      throw new NullPointerException( "session is null" );
+    }
     // link to running task
     AsyncReportStatusListener runningTask = listeners.get( new CompositeKey( session, id ) );
 
-    return runningTask.clone();
+    return runningTask == null ? null : runningTask.clone();
   }
 
-  @Override
-  public void onLogout( IPentahoSession iPentahoSession ) {
+  @Override public void onLogout( IPentahoSession iPentahoSession ) {
     if ( log.isDebugEnabled() ) {
       // don't expose full session id.
-      log.debug( "killing async report execution cache for " + iPentahoSession.getId().substring( 0, 10 ) );
+      log.debug( "killing async report execution cache for user: " + iPentahoSession.getName() );
     }
     for ( Map.Entry<CompositeKey, Future<InputStream>> entry : tasks.entrySet() ) {
       if ( entry.getKey().getSessionId().equals( iPentahoSession.getId() ) ) {
-        //TODO future cancel impl.
+        // attempt to cancel running task
         entry.getValue().cancel( true );
+
+        // remove all links to release GC
+        tasks.remove( entry.getKey() );
+        listeners.remove( entry.getKey() );
       }
     }
 
     // do it generic way according to staging handler was used?
     Path stagingSessionDir = AsyncJobFileStagingHandler.getStagingDirPath().resolve( iPentahoSession.getId() );
     File sessionStagingContent = stagingSessionDir.toFile();
-    if ( sessionStagingContent.exists() ) {
-      try {
-        Files.walkFileTree( stagingSessionDir, new SimpleFileVisitor<Path>() {
-          @Override
-          public FileVisitResult visitFile( Path file, BasicFileAttributes attrs ) throws IOException {
-            Files.delete( file );
-            return FileVisitResult.CONTINUE;
-          }
-          @Override
-          public FileVisitResult visitFileFailed( Path file, IOException e ) throws IOException {
-            Files.delete( file );
-            return FileVisitResult.CONTINUE;
-          }
 
-          @Override
-          public FileVisitResult postVisitDirectory( Path dir, IOException e ) throws IOException {
-            if ( e == null ) {
-              Files.delete( dir );
-              return FileVisitResult.CONTINUE;
-            } else {
-              throw e;
-            }
-          }
-        } );
-      } catch ( IOException e ) {
-        log.debug( "Unable delete temp files on session logout." );
-      }
+    // some lib can do it for me?
+    try {
+      FileUtils.deleteDirectory( sessionStagingContent );
+    } catch ( IOException e ) {
+      log.debug( "Unable delete temp files on session logout." );
+    }
+  }
+
+  @Override public boolean startup( IPentahoSession iPentahoSession ) {
+    // don't see any useful actions now
+    // may be register some supervisor here later?
+    return true;
+  }
+
+  @Override public void shutdown() {
+    // attempt to stop all
+    for ( Map.Entry<CompositeKey, Future<InputStream>> entry : tasks.entrySet() ) {
+      entry.getValue().cancel( true );
+    }
+    // forget all
+    this.tasks.clear();
+    this.listeners.clear();
+
+    // delete all staging dir
+    Path stagingDir = AsyncJobFileStagingHandler.getStagingDirPath();
+    File stagingDirFile = stagingDir.toFile();
+    try {
+      FileUtils.deleteDirectory( stagingDirFile );
+    } catch ( IOException e ) {
+      log.debug( "Unable to delete async staging content on shutdown. Directory: " + stagingDirFile.getName() );
     }
   }
 }

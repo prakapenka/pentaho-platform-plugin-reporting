@@ -1,22 +1,14 @@
 package org.pentaho.reporting.platform.plugin.async;
 
 import org.apache.commons.io.input.NullInputStream;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
 import org.pentaho.platform.api.engine.ILogger;
-import org.pentaho.platform.api.repository2.unified.IUnifiedRepository;
-import org.pentaho.platform.api.repository2.unified.RepositoryFile;
 import org.pentaho.platform.engine.core.audit.AuditHelper;
 import org.pentaho.platform.engine.core.audit.MessageTypes;
-import org.pentaho.platform.engine.core.system.PentahoSystem;
 import org.pentaho.reporting.engine.classic.core.MasterReport;
-import org.pentaho.reporting.engine.classic.core.modules.output.table.html.HtmlTableModule;
-import org.pentaho.reporting.libraries.resourceloader.ResourceException;
 import org.pentaho.reporting.platform.plugin.ExecuteReportContentHandler;
 import org.pentaho.reporting.platform.plugin.SimpleReportingComponent;
 import org.pentaho.reporting.platform.plugin.staging.AsyncJobFileStagingHandler;
 
-import java.io.IOException;
 import java.io.InputStream;
 
 /**
@@ -36,8 +28,7 @@ public class PentahoAsyncReportExecution implements AsyncReportExecution<InputSt
 
   private AsyncReportStatusListener listener;
 
-  public PentahoAsyncReportExecution( String url, SimpleReportingComponent reportComponent, AsyncJobFileStagingHandler handler, ILogger logger )
-      throws ResourceException, IOException {
+  public PentahoAsyncReportExecution( String url, SimpleReportingComponent reportComponent, AsyncJobFileStagingHandler handler ) {
     this.reportComponent = reportComponent;
     this.handler = handler;
     this.url = url;
@@ -47,16 +38,12 @@ public class PentahoAsyncReportExecution implements AsyncReportExecution<InputSt
     this.userSession = userSession;
   }
 
-  public void forUser ( String userName ) {
+  public void forUser( String userName ) {
     this.userName = userName;
   }
 
-  public void forInstanceId ( String insnaceId ) {
+  public void forInstanceId( String insnaceId ) {
     this.insnaceId = insnaceId;
-  }
-
-  public void withLogger( ILogger logger ) {
-    this.logger = logger;
   }
 
   @Override
@@ -73,14 +60,12 @@ public class PentahoAsyncReportExecution implements AsyncReportExecution<InputSt
     //async is always fully buffered
     report.getReportConfiguration().setConfigProperty( ExecuteReportContentHandler.FORCED_BUFFERED_WRITING, "false" );
 
-    long end = 0;
     if ( reportComponent.execute() ) {
       listener.setStatus( AsyncExecutionStatus.FINISHED );
 
-      end = System.currentTimeMillis();
+      long end = System.currentTimeMillis();
       AuditHelper.audit( userSession, userSession, url, getClass().getName(), getClass()
           .getName(), MessageTypes.FAILED, insnaceId, "", ( (float) ( end - start ) / 1000 ), logger );
-
 
       return handler.getStagingContent();
     }
@@ -99,7 +84,7 @@ public class PentahoAsyncReportExecution implements AsyncReportExecution<InputSt
 
   @Override
   public String toString() {
-    return this.listener.toString();
+    return this.getState().toString();
   }
 
   @Override
