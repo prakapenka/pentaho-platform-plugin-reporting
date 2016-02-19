@@ -20,20 +20,22 @@ package org.pentaho.reporting.platform.plugin.async;
 
 import org.apache.commons.io.input.NullInputStream;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
-import org.mockito.Mockito;
+import org.junit.rules.Timeout;
 import org.pentaho.platform.api.engine.IPentahoSession;
 import org.pentaho.reporting.engine.classic.core.MasterReport;
 import org.pentaho.reporting.libraries.base.config.ModifiableConfiguration;
-import org.pentaho.reporting.libraries.resourceloader.ResourceException;
 import org.pentaho.reporting.platform.plugin.SimpleReportingComponent;
 import org.pentaho.reporting.platform.plugin.staging.AsyncJobFileStagingHandler;
 
-import java.io.IOException;
 import java.io.InputStream;
 import java.util.UUID;
+import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.mockito.Mockito.*;
 import static org.pentaho.di.core.util.Assert.assertFalse;
@@ -42,6 +44,8 @@ import static org.pentaho.di.core.util.Assert.assertFalse;
  * Created by dima.prokopenko@gmail.com on 2/17/2016.
  */
 public class PentahoAsyncExecutionTest {
+
+  @Rule public Timeout globalTimeout = new Timeout( 10000 );
 
   IPentahoSession userSession = mock( IPentahoSession.class );
   SimpleReportingComponent component = mock( SimpleReportingComponent.class );
@@ -62,7 +66,8 @@ public class PentahoAsyncExecutionTest {
   public void testListenerSuccessExecution() throws Exception {
     when( component.execute() ).thenReturn( true );
 
-    PentahoAsyncReportExecution exec = new PentahoAsyncReportExecution( "junit-path", component, handler );
+    PentahoAsyncReportExecution
+        exec = new PentahoAsyncReportExecution( "junit-path", component, handler );
     AsyncReportStatusListener listner = new AsyncReportStatusListener( "display_path", UUID.randomUUID(), "text/html" );
 
     exec.setListener( listner );
@@ -81,7 +86,8 @@ public class PentahoAsyncExecutionTest {
   public void testListenerFailExecution() throws Exception {
     when( component.execute() ).thenReturn( false );
 
-    PentahoAsyncReportExecution exec = new PentahoAsyncReportExecution( "junit-path", component, handler );
+    PentahoAsyncReportExecution
+        exec = new PentahoAsyncReportExecution( "junit-path", component, handler );
     AsyncReportStatusListener listener = new AsyncReportStatusListener( "display_path", UUID.randomUUID(), "text/html" );
 
     exec.setListener( listener );
@@ -93,5 +99,40 @@ public class PentahoAsyncExecutionTest {
     assertFalse( returnStream.equals( input ) );
 
     verify( handler, times(0) ).getStagingContent();
+  }
+
+  @Test
+  public void testCancellationFeature() throws InterruptedException {
+    final AtomicBoolean run = new AtomicBoolean( false );
+
+    PentahoAsyncReportExecution spy = this.getSleepingSpy( run );
+
+    PentahoAsyncExecutor executor = new PentahoAsyncExecutor( 13 );
+    UUID id = executor.addTask( spy, this.userSession );
+
+    Thread.sleep( 100 );
+    Future<InputStream> fu = executor.getFuture( id, this.userSession );
+    assertFalse( fu.isDone() );
+
+    fu.cancel( true );
+    verify( spy, times( 1 )).cancel();
+
+    assertTrue( fu.isCancelled() );
+  }
+
+  private PentahoAsyncReportExecution getSleepingSpy( final AtomicBoolean run ) {
+    PentahoAsyncReportExecution
+        exec = new PentahoAsyncReportExecution( "junit-path", component, handler ) {
+      @Override
+      public InputStream call() throws Exception {
+        while ( !run.get() && !Thread.currentThread().isInterrupted() ) {
+          Thread.sleep( 10 );
+        }
+        return null;
+      }
+    };
+    PentahoAsyncReportExecution spy = spy( exec );
+
+    return spy;
   }
 }

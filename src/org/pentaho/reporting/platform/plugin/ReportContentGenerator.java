@@ -40,7 +40,7 @@ public class ReportContentGenerator extends ParameterContentGenerator {
   private static final long serialVersionUID = 1L;
 
   public enum RENDER_TYPE {
-    REPORT, XML, PARAMETER, DOWNLOAD, ASYNC
+    REPORT, XML, PARAMETER, DOWNLOAD
   }
 
   private static final Log log = LogFactory.getLog( ReportContentGenerator.class );

@@ -25,10 +25,16 @@ import org.codehaus.jackson.map.ObjectMapper;
 import org.pentaho.platform.api.engine.IPentahoSession;
 import org.pentaho.platform.engine.core.system.PentahoSessionHolder;
 import org.pentaho.platform.engine.core.system.PentahoSystem;
-import org.pentaho.reporting.platform.plugin.async.AsyncReportState;
+import org.pentaho.reporting.platform.plugin.async.IAsyncReportState;
+import org.pentaho.reporting.platform.plugin.async.IPentahoAsyncExecutor;
 import org.pentaho.reporting.platform.plugin.async.PentahoAsyncExecutor;
 
-import javax.ws.rs.*;
+import javax.ws.rs.GET;
+import javax.ws.rs.POST;
+import javax.ws.rs.Path;
+import javax.ws.rs.PathParam;
+import javax.ws.rs.Produces;
+import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.StreamingOutput;
@@ -45,11 +51,22 @@ import java.util.concurrent.Future;
 
   private static final Log logger = LogFactory.getLog( JobManager.class );
 
-  @GET public Response getEcho() {
-    //TODO bi server settings on/off async calls
+  private boolean isSuportAsync = true;
 
-    // I'm a teapot
-    return Response.status( 418 ).build();
+  JobManager() {
+    this( true );
+  }
+
+  JobManager( boolean isSuportAsync ) {
+    if ( !isSuportAsync ) {
+      logger.info( "JobManager initialization: async mode marked as disabled." );
+    }
+    this.isSuportAsync = isSuportAsync;
+  }
+
+  @GET @Path( "/isasync" ) public Response isAsync() {
+    return isSuportAsync ? Response.ok( Boolean.TRUE, MediaType.TEXT_PLAIN_TYPE ).build()
+        : Response.ok( Boolean.FALSE, MediaType.TEXT_PLAIN_TYPE ).build();
   }
 
   @POST @Path( "{job_id}/content" ) public Response getContent( @PathParam( "job_id" ) String job_id )
@@ -58,29 +75,38 @@ import java.util.concurrent.Future;
     try {
       uuid = UUID.fromString( job_id );
     } catch ( Exception e ) {
-      logger.error( "Invalid UUID: " + job_id );
+      logger.error( "Content: invalid UUID: " + job_id );
       // The 422 (Unprocessable Entity) status code
-      return Response.status( 422 ).build();
+      return get404();
     }
 
     // get async bean:
-    PentahoAsyncExecutor executor = getExecutor();
+    IPentahoAsyncExecutor executor = getExecutor();
     if ( executor == null ) {
       return Response.serverError().build();
     }
 
     final IPentahoSession session = PentahoSessionHolder.getSession();
 
-    Future<InputStream> cachedReport = executor.getFuture( uuid, session );
-    AsyncReportState state = executor.getReportState( uuid, session );
+    Future<InputStream> future = executor.getFuture( uuid, session );
+    if ( future == null || !future.isDone() ) {
+      logger.warn( "Attempt to get content while execution is not done. Called by: " + session.getName() );
+      return get404();
+    }
+
+    IAsyncReportState state = executor.getReportState( uuid, session );
 
     InputStream input = null;
     try {
-      input = cachedReport.get();
+      input = future.get();
     } catch ( Exception e ) {
       logger.error( "Error generating report", e );
       return Response.serverError().build();
     }
+    // ok we have InputStream so future will not be used anymore.
+    // release internal links to objects
+    executor.cleanFuture( uuid, session );
+
     StreamingOutput stream = new StreamingOutputWrapper( input );
 
     MediaType mediaType = null;
@@ -101,21 +127,21 @@ import java.util.concurrent.Future;
     try {
       uuid = UUID.fromString( job_id );
     } catch ( Exception e ) {
-      logger.error( "Invalid UUID: " + job_id );
-      // The 422 (Unprocessable Entity) status code
-      return Response.status( 422 ).build();
+      logger.error( "Status: invalid UUID: " + job_id );
+      return get404();
     }
 
-    PentahoAsyncExecutor executor = getExecutor();
+    IPentahoAsyncExecutor executor = getExecutor();
     if ( executor == null ) {
       // where is my bean?
       return Response.serverError().build();
     }
     final IPentahoSession session = PentahoSessionHolder.getSession();
-    AsyncReportState responseJson = executor.getReportState( uuid, session );
+    IAsyncReportState responseJson = executor.getReportState( uuid, session );
     if ( responseJson == null ) {
-      return Response.status( 422 ).build();
+      return get404();
     }
+    // ...someday refactor it to convenient jax-rs way.
     ObjectMapper mapper = new ObjectMapper();
     String json = null;
     try {
@@ -127,11 +153,44 @@ import java.util.concurrent.Future;
     return Response.ok( json ).build();
   }
 
-  //TODO since it is singlton, get it only one time?
-  private PentahoAsyncExecutor getExecutor() {
-    return PentahoSystem.get( PentahoAsyncExecutor.class, PentahoAsyncExecutor.BEAN_NAME, null );
+  @GET @Path( "{job_id}/cancel" ) public Response cancel( @PathParam( "job_id" ) String job_id ) {
+    UUID uuid = null;
+    try {
+      uuid = UUID.fromString( job_id );
+    } catch ( Exception e ) {
+      logger.error( "Status: invalid UUID: " + job_id );
+      return get404();
+    }
+
+    IPentahoAsyncExecutor executor = getExecutor();
+    if ( executor == null ) {
+      // where is my bean?
+      return Response.serverError().build();
+    }
+    final IPentahoSession session = PentahoSessionHolder.getSession();
+
+    Future<InputStream> future = executor.getFuture( uuid, session );
+    IAsyncReportState state = executor.getReportState( uuid, session );
+
+    logger.debug( "Cancellation of report: " + state.getPath() + ", requested by : " + session.getName() );
+    future.cancel( true );
+
+    return Response.ok().build();
   }
 
+  private Response get404() {
+    return Response.status( Response.Status.NOT_FOUND ).build();
+  }
+
+  private IPentahoAsyncExecutor getExecutor() {
+    return PentahoSystem.get( IPentahoAsyncExecutor.class, PentahoAsyncExecutor.BEAN_NAME, null );
+  }
+
+  /**
+   * In-place implementation to support streaming responses.
+   * By default - even InputStream passed - streaming is not occurs.
+   *
+   */
   public static final class StreamingOutputWrapper implements StreamingOutput {
 
     private InputStream input;
@@ -151,5 +210,4 @@ import java.util.concurrent.Future;
       }
     }
   }
-
 }

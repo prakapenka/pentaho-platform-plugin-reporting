@@ -80,14 +80,13 @@ public class BackgroundJobReportContentGenerator extends ParameterContentGenerat
     }
     reportComponent.setInputs( inputs );
 
-    AsyncJobFileStagingHandler handler = new AsyncJobFileStagingHandler( outputStream, userSession,
-        PentahoSystem.getApplicationContext().getSolutionPath( "system/tmp" ) );
+    AsyncJobFileStagingHandler handler = new AsyncJobFileStagingHandler( userSession );
     // will write to async stage target
     reportComponent.setOutputStream( handler.getStagingOutputStream() );
 
-    PentahoAsyncReportExecution asyncExec = new PentahoAsyncReportExecution( path, reportComponent, handler );
+    PentahoAsyncReportExecution
+        asyncExec = new PentahoAsyncReportExecution( path, reportComponent, handler );
     asyncExec.forSession( userSession.getId() );
-    asyncExec.forUser( userSession.getName() );
     asyncExec.forInstanceId( instanceId );
 
     PentahoAsyncExecutor executor =

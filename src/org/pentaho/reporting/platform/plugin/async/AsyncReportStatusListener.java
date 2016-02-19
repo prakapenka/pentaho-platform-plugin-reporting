@@ -21,7 +21,6 @@ package org.pentaho.reporting.platform.plugin.async;
 import org.pentaho.reporting.engine.classic.core.event.ReportProgressEvent;
 import org.pentaho.reporting.engine.classic.core.event.ReportProgressListener;
 
-import java.util.LinkedList;
 import java.util.Queue;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -31,7 +30,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
  *
  * Created by dima.prokopenko@gmail.com on 2/12/2016.
  */
-public class AsyncReportStatusListener implements AsyncReportListener, ReportProgressListener, AsyncReportState {
+class AsyncReportStatusListener implements IAsyncReportListener, ReportProgressListener, IAsyncReportState {
 
   private String path;
   private UUID uuid;
@@ -96,16 +95,6 @@ public class AsyncReportStatusListener implements AsyncReportListener, ReportPro
   @Override
   public void reportProcessingFinished( ReportProgressEvent event ) {
     events.add( event );
-  }
-
-  // is not thread safe but we don't need it
-  @Override
-  public AsyncReportState clone() {
-    AsyncReportStatusListener clone = new AsyncReportStatusListener( path, UUID.fromString( this.uuid.toString() ), mimeType );
-    clone.setStatus( this.status );
-    clone.setProgress( this.progress );
-
-    return clone;
   }
 
   @Override

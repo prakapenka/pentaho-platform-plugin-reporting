@@ -18,13 +18,14 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Created by dima.prokopenko@gmail.com on 2/2/2016.
  */
-public class PentahoAsyncExecutor implements ILogoutListener, IPentahoSystemListener {
+public class PentahoAsyncExecutor implements ILogoutListener, IPentahoSystemListener, IPentahoAsyncExecutor {
 
   public static final String BEAN_NAME = "reporting-async-thread-pool";
 
@@ -36,14 +37,15 @@ public class PentahoAsyncExecutor implements ILogoutListener, IPentahoSystemList
   private ExecutorService executorService;
 
   /**
-   * Spring supports beans with private constructors ))
    *
    * @param capacity
    */
   //package private visibility for testing purposes
   PentahoAsyncExecutor( int capacity ) {
     log.info( "Initialized reporting  async execution fixed thread pool with capacity: " + capacity );
-    executorService = Executors.newFixedThreadPool( capacity );
+    executorService =
+        new PentahoAsyncCancellingExecutor( capacity, capacity, 0L, TimeUnit.MILLISECONDS,
+            new LinkedBlockingQueue<Runnable>() );
     PentahoSystem.addLogoutListener( this );
   }
 
@@ -78,7 +80,7 @@ public class PentahoAsyncExecutor implements ILogoutListener, IPentahoSystemList
     }
   }
 
-  public UUID addTask( PentahoAsyncReportExecution task, IPentahoSession session ) {
+  @Override public UUID addTask( PentahoAsyncReportExecution task, IPentahoSession session ) {
 
     UUID id = UUID.randomUUID();
     CompositeKey key = new CompositeKey( session, id );
@@ -94,7 +96,7 @@ public class PentahoAsyncExecutor implements ILogoutListener, IPentahoSystemList
     return id;
   }
 
-  public Future<InputStream> getFuture( UUID id, IPentahoSession session ) {
+  @Override public Future<InputStream> getFuture( UUID id, IPentahoSession session ) {
     if ( id == null ) {
       throw new NullPointerException( "uuid is null" );
     }
@@ -104,7 +106,13 @@ public class PentahoAsyncExecutor implements ILogoutListener, IPentahoSystemList
     return tasks.get( new CompositeKey( session, id ) );
   }
 
-  public AsyncReportState getReportState( UUID id, IPentahoSession session ) {
+  @Override public void cleanFuture( UUID id, IPentahoSession session ) {
+    CompositeKey key = new CompositeKey( session, id );
+    tasks.remove( key );
+    listeners.remove( key );
+  }
+
+  @Override public IAsyncReportState getReportState( UUID id, IPentahoSession session ) {
     if ( id == null ) {
       throw new NullPointerException( "uuid is null" );
     }
@@ -114,7 +122,7 @@ public class PentahoAsyncExecutor implements ILogoutListener, IPentahoSystemList
     // link to running task
     AsyncReportStatusListener runningTask = listeners.get( new CompositeKey( session, id ) );
 
-    return runningTask == null ? null : runningTask.clone();
+    return runningTask == null ? null : runningTask;
   }
 
   @Override public void onLogout( IPentahoSession iPentahoSession ) {
